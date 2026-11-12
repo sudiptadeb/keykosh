@@ -260,3 +260,35 @@ func TestPromptFillsRootAndRepo(t *testing.T) {
 		t.Fatal("placeholders left in the guide")
 	}
 }
+
+// Running init on an existing kosh writes nothing.
+func TestInitAgainChangesNothing(t *testing.T) {
+	k := newKosh(t)
+	put(t, k, "a", "x")
+	must(t)(k.Seal())
+	snap := func() map[string]string {
+		m := map[string]string{}
+		filepath.Walk(k.Root, func(p string, fi os.FileInfo, err error) error {
+			if err == nil && !fi.IsDir() {
+				b, _ := os.ReadFile(p)
+				m[p] = string(b)
+			}
+			return nil
+		})
+		return m
+	}
+	before := snap()
+	if _, err := Init(k.Root, "other passphrase"); err == nil {
+		t.Fatal("init on a kosh succeeded")
+	}
+	after := snap()
+	if len(before) != len(after) {
+		t.Fatal("init again added or removed files")
+	}
+	for p, b := range before {
+		if after[p] != b {
+			t.Fatalf("init again changed %s", p)
+		}
+	}
+	must(t)(k.Unlock(pass))
+}

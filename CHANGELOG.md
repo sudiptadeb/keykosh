@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1
+
+- `init` on a folder that is already a kosh changes nothing and asks for no
+  passphrase: it says so, says what to run next, and offers the default kosh.
+
 ## v0.2.0
 
 - `init` ends on a short guide: next steps, how repos read keys

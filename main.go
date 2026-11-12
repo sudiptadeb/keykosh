@@ -165,7 +165,18 @@ func runInit(f flags, args []string) {
 		fail(err)
 	}
 	if IsKosh(dir) {
-		fail(fmt.Errorf("%s is already a kosh", dir))
+		// Running init again is harmless: nothing is written, not even the
+		// passphrase is asked for.
+		k, err := Open(dir)
+		if err != nil {
+			fail(err)
+		}
+		say("%s is already a kosh; nothing changed", tilde(k.Root))
+		if items, err := k.Status(); err == nil {
+			hints(k, items)
+		}
+		offerDefault(k.Root, f, false)
+		return
 	}
 	k, err := Init(dir, newPassphrase())
 	if err != nil {
