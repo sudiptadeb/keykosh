@@ -20,9 +20,12 @@ const usage = `keykosh keeps your keys in a folder, sealed with one passphrase.
   keykosh unlock         lay every key out as a plain file
   keykosh seal           seal new and changed keys, keep the plain files
   keykosh lock           seal, then remove the plain files
-  keykosh status         show each key's state
+  keykosh status         show each key's state and what to run next
   keykosh rm <name>      delete a key from the kosh
   keykosh passwd         change the passphrase
+  keykosh default        make this kosh the default (KEYKOSH_ROOT)
+  keykosh prompt [repo]  print a guide for a coding agent to move a repo's
+                         keys into the kosh
   keykosh update         update keykosh itself (every run checks, at most
                          every 15 minutes, and only tells you)
   keykosh version
@@ -30,11 +33,13 @@ const usage = `keykosh keeps your keys in a folder, sealed with one passphrase.
 Which kosh: -C <dir>, else this folder if it has .kosh/, else $KEYKOSH_ROOT.
 
   -C <dir>     use the kosh in dir
-  --yes        set the default kosh in your shell's startup file without asking
-  --no-shell   never touch your shell's startup file
+  --yes        write the default to your shell's startup file without asking
+  --no-shell   never touch shell startup files
 
 The passphrase is read from the terminal, or from the first line of stdin
 when stdin is not a terminal.
+
+Learn more: https://github.com/sudiptadeb/keykosh
 `
 
 type flags struct {
@@ -79,16 +84,20 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		report(res)
-		offerDefault(k.Root, f)
+		report(res, "unlock")
+		offerDefault(k.Root, f, false)
 		exitFor(res)
 	case "seal":
 		noArgs(cmd, args)
-		res, err := find(f).Seal()
+		k := find(f)
+		res, err := k.Seal()
 		if err != nil {
 			fail(err)
 		}
-		report(res)
+		report(res, "seal")
+		if len(res.Done) > 0 {
+			say("commit them: cd %s && git add -A && git commit -m keys", tilde(k.Root))
+		}
 		exitFor(res)
 	case "lock":
 		noArgs(cmd, args)
@@ -96,7 +105,7 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		report(res)
+		report(res, "lock")
 		exitFor(res)
 	case "status":
 		noArgs(cmd, args)
@@ -109,6 +118,7 @@ func main() {
 		for _, it := range items {
 			fmt.Printf("%-9s %s\n", it.Status, it.Name)
 		}
+		hints(k, items)
 	case "rm":
 		if len(args) == 0 {
 			fail(errors.New("rm: name a key"))
@@ -120,6 +130,11 @@ func main() {
 			}
 			say("removed %s", n)
 		}
+	case "default":
+		noArgs(cmd, args)
+		offerDefault(find(f).Root, f, true)
+	case "prompt":
+		runPrompt(f, args)
 	case "passwd":
 		noArgs(cmd, args)
 		k := find(f)
@@ -156,8 +171,8 @@ func runInit(f flags, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	say("made %s a kosh. Put keys in it, then keykosh seal and commit.", tilde(k.Root))
-	offerDefault(k.Root, f)
+	offerDefault(k.Root, f, false)
+	afterInit(k)
 }
 
 func parseFlags(in []string) (flags, []string, error) {
@@ -253,7 +268,10 @@ func confirm(q string) bool {
 	return a == "y" || a == "yes"
 }
 
-func report(r *Result) {
+func report(r *Result, verb string) {
+	if len(r.Done) == 0 && len(r.Skipped) == 0 {
+		say("nothing to %s", verb)
+	}
 	for _, it := range r.Done {
 		say("%-8s %s", it.Status, it.Name)
 	}

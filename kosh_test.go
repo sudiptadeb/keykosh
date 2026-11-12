@@ -240,13 +240,23 @@ func TestGitignoreCommitsOnlySealed(t *testing.T) {
 func TestShellDefaultReplacesItsLine(t *testing.T) {
 	f := filepath.Join(t.TempDir(), ".zshenv")
 	os.WriteFile(f, []byte("export PATH=/x\n"), 0o600)
-	setShellDefault(f, `export KEYKOSH_ROOT="/a"  # keykosh`)
-	setShellDefault(f, `export KEYKOSH_ROOT="/b"  # keykosh`)
+	setShellDefault(f, `export KEYKOSH_ROOT="/a"`)
+	setShellDefault(f, `export KEYKOSH_ROOT="/b"`)
 	b, _ := os.ReadFile(f)
 	if string(b) != "export PATH=/x\nexport KEYKOSH_ROOT=\"/b\"  # keykosh\n" {
 		t.Fatalf("got %q", b)
 	}
 	if fi, _ := os.Stat(f); fi.Mode().Perm() != 0o600 {
 		t.Fatal("the rc file's mode changed")
+	}
+}
+
+func TestPromptFillsRootAndRepo(t *testing.T) {
+	if strings.Contains(repoGuide, "{{") == false {
+		t.Fatal("the guide has no placeholders")
+	}
+	out := strings.NewReplacer("{{root}}", "~/k", "{{repo}}", "app").Replace(repoGuide)
+	if strings.Contains(out, "{{") || !strings.Contains(out, "$KEYKOSH_ROOT/app") {
+		t.Fatal("placeholders left in the guide")
 	}
 }
