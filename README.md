@@ -124,8 +124,14 @@ not a terminal (for CI: `printf '%s\n' "$PASS" | keykosh unlock`).
 
 ## Updating
 
+Every run checks for a newer release, at most once every 15 minutes, and
+only tells you: `keykosh 0.2.0 is out (you have 0.1.0); run: keykosh update`.
+The check gives up after 3 seconds, and its result is cached in
+`~/.keykosh/latest`.
+
 `keykosh update` moves to the latest release through
-[amarit](https://github.com/sudiptadeb/amarit), verifying the download first.
+[amarit](https://github.com/sudiptadeb/amarit), verifying the download and
+rolling back if the new binary does not start.
 
 ## Releasing
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sudiptadeb/amarit"
@@ -22,7 +23,8 @@ const usage = `keykosh keeps your keys in a folder, sealed with one passphrase.
   keykosh status         show each key's state
   keykosh rm <name>      delete a key from the kosh
   keykosh passwd         change the passphrase
-  keykosh update         update keykosh itself
+  keykosh update         update keykosh itself (every run checks, at most
+                         every 15 minutes, and only tells you)
   keykosh version
 
 Which kosh: -C <dir>, else this folder if it has .kosh/, else $KEYKOSH_ROOT.
@@ -46,8 +48,10 @@ func main() {
 	// amarit's hourly loop, which AMARIT_MANAGED (inherited from any
 	// shell amarit started) would otherwise switch on.
 	if len(os.Args) > 1 && os.Args[1] == "update" {
+		os.Remove(filepath.Join(homeDir(), "latest")) // the next run checks afresh
 		amarit.Start()
 	}
+	noticeUpdate()
 	f, args, err := parseFlags(os.Args[1:])
 	if err != nil {
 		fail(err)
@@ -60,7 +64,7 @@ func main() {
 	switch cmd {
 	case "help", "-h", "--help":
 		fmt.Print(usage)
-	case "version", "--version":
+	case "version", "-version", "--version":
 		v := strings.TrimPrefix(amarit.BuildVersion(), "v")
 		if v == "" {
 			v = "dev"
